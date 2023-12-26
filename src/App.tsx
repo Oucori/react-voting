@@ -7,33 +7,16 @@ import {Session} from '@supabase/supabase-js';
 import {Button} from "@mui/material";
 import {getDiscordUserFromSession, supabase} from "./services/SupabaseService.ts";
 
-
 function App() {
 
     const [gameInformation, setGameInformation] = useState<GameInformation[]>([]);
     const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
     const [session, setSession] = useState<Session>();
 
-    useEffect(() => {
-        console.log("UseEffect [ isLoggedIn ]");
-        supabase.auth.getSession().then((session) => {
-            if(!session.data.session) {
-                handleLogin();
-            } else {
-                setIsLoggedIn(true);
-                setSession(session.data.session);
-            }
-        }).catch(handleLogin)
-    }, [!isLoggedIn]);
-
-
-
     function handleLogin() {
         supabase.auth.signInWithOAuth({
             provider: 'discord',
-        }).then(response => {
-            console.log(response.data);
-            console.log("Logged in!");
+        }).then(() => {
             supabase.auth.getSession().then((session) => {
                 if(session.data.session) {
                     setSession(session.data.session);
@@ -48,6 +31,19 @@ function App() {
             setIsLoggedIn(false);
         })
     }
+
+    useEffect(() => {
+        console.log("UseEffect [ isLoggedIn ]");
+        supabase.auth.getSession().then((session) => {
+            if(!session.data.session) {
+                handleLogin();
+            } else {
+                setIsLoggedIn(true);
+                setSession(session.data.session);
+            }
+        }).catch(handleLogin)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [!isLoggedIn]);
 
     useEffect(() => {
         console.log("UseEffect [ gameInformation ]");
