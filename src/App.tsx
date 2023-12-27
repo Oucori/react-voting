@@ -1,6 +1,6 @@
 import './App.css'
 import {useEffect, useState} from "react";
-import {GameInformation} from "./models/GameInformation.ts";
+import {EnrichedGameInformation} from "./models/GameInformation.ts";
 import {getGameInformations} from "./services/SteamService.ts";
 import EntryCard from "./components/entry-card/EntryCard.tsx";
 import {Session} from '@supabase/supabase-js';
@@ -9,7 +9,7 @@ import {getDiscordUserFromSession, supabase} from "./services/SupabaseService.ts
 
 function App() {
 
-    const [gameInformation, setGameInformation] = useState<GameInformation[]>([]);
+    const [gameInformation, setGameInformation] = useState<EnrichedGameInformation[]>([]);
     const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
     const [session, setSession] = useState<Session>();
 

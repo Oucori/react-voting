@@ -5,7 +5,7 @@ import {
     Typography
 } from "@mui/material";
 import {useState} from "react";
-import {GameInformation} from "../../models/GameInformation.ts";
+import {EnrichedGameInformation} from "../../models/GameInformation.ts";
 
 
 const marks = [
@@ -32,13 +32,12 @@ const marks = [
 ];
 
 type EntryCardProps = {
-    GameInformation: GameInformation,
+    GameInformation: EnrichedGameInformation,
     editable?: boolean,
-    rating?: number,
 }
 
 function EntryCard(props: EntryCardProps) {
-    const [rating, setRating] = useState<number>(props.rating ?? 0)
+    const [rating, setRating] = useState<number>(props.GameInformation.personal_rating ?? 0)
 
     const handleRatingChange = (_event: Event, newValue: number | number[]) => {
         setRating(newValue as number);

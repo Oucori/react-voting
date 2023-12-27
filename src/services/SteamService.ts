@@ -1,32 +1,53 @@
-import {GameInformation} from "../models/GameInformation.ts";
-import axios from "axios";
+import {supabase} from "./SupabaseService.ts";
+import {EnrichedGameInformation, GameInformation} from "../models/GameInformation.ts";
 
-const steamUrl = "https://store.steampowered.com/api/appdetails?appids=";
 
-const GameIds = [1086940, 427520, 1966720]
-
-export async function getGameInformations(): Promise<GameInformation[]> {
+export async function getGameInformations(): Promise<EnrichedGameInformation[]> {
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
-        const axiosInstance = axios.create();
+        const { data} = await supabase.from("GameInfo").select("*");
 
-        const GameInformations: GameInformation[] = [];
-        for (const gameId of GameIds) {
-            const html = (await axiosInstance.get(steamUrl + gameId)).data;
-            const gameData = html[gameId].data;
+        if(!data) return resolve([]);
 
-            const GameInformation: GameInformation = {
-                id: gameId,
-                name: gameData["name"],
-                image_url: gameData["header_image"],
-                description: gameData["short_description"],
-                game_url: "https://store.steampowered.com/app/" + gameId,
-            }
+        const GameInformations = data as GameInformation[];
 
-            console.log(GameInformation)
+        const {data: ratings} = await supabase.from("GameRating").select("*");
 
-            GameInformations.push(GameInformation);
+        console.log("Logging Ratings: ")
+        console.log(ratings)
+
+        if(!ratings) {
+            const enrichedData: EnrichedGameInformation[] = GameInformations.map((gameInfo: GameInformation) => {
+                return {
+                    ...gameInfo,
+                    overall_rating: 0,
+                    personal_rating: 0,
+                }
+            });
+            return resolve(enrichedData);
+        } else {
+            const userId = (await supabase.auth.getSession() ).data.session?.user.id ?? "";
+
+            const enrichedData: EnrichedGameInformation[] = GameInformations.map((gameInfo: GameInformation) => {
+                const overall_rating = ratings.reduce((acc: number, rating) => {
+                    if(rating.game === gameInfo.id) {
+                        if(!rating.rating) return acc;
+                        return acc + rating.rating ?? 0;
+                    }
+                    return acc;
+                }, 0) / ratings.length;
+
+                return {
+                    ...gameInfo,
+                    overall_rating,
+                    personal_rating: ratings.find((rating) => rating.game === gameInfo.id && rating.user === userId)?.rating || 0,
+                }
+            });
+
+            console.log("Logging Enriched Data: ")
+            console.log(enrichedData);
+
+            return resolve(enrichedData.sort((a, b) => b.overall_rating - a.overall_rating));
         }
-        resolve(GameInformations);
     });
 }
