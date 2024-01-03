@@ -7,3 +7,7 @@ export const supabase = createClient<Database>('https://rlwucxrcbtyqrssqlcnq.sup
 export function getDiscordUserFromSession(session: Session) {
     return session.user.user_metadata as DiscordUserData;
 }
+
+export async function getCurrentUserId() {
+    return (await supabase.auth.getSession()).data.session?.user.id;
+}

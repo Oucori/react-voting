@@ -115,7 +115,7 @@ export interface Database {
                     game: number
                     id?: number
                     rating?: number | null
-                    user: string
+                    user?: string
                 }
                 Update: {
                     created_at?: string

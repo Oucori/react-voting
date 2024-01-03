@@ -1,53 +1,69 @@
-import {supabase} from "./SupabaseService.ts";
+import {getCurrentUserId, supabase} from "./SupabaseService.ts";
 import {EnrichedGameInformation, GameInformation} from "../models/GameInformation.ts";
 
 
-export async function getGameInformations(): Promise<EnrichedGameInformation[]> {
-    // eslint-disable-next-line no-async-promise-executor
-    return new Promise(async (resolve) => {
-        const { data} = await supabase.from("GameInfo").select("*");
-
-        if(!data) return resolve([]);
-
-        const GameInformations = data as GameInformation[];
-
-        const {data: ratings} = await supabase.from("GameRating").select("*");
-
-        console.log("Logging Ratings: ")
-        console.log(ratings)
-
-        if(!ratings) {
-            const enrichedData: EnrichedGameInformation[] = GameInformations.map((gameInfo: GameInformation) => {
-                return {
-                    ...gameInfo,
-                    overall_rating: 0,
-                    personal_rating: 0,
-                }
-            });
-            return resolve(enrichedData);
-        } else {
-            const userId = (await supabase.auth.getSession() ).data.session?.user.id ?? "";
-
-            const enrichedData: EnrichedGameInformation[] = GameInformations.map((gameInfo: GameInformation) => {
-                const overall_rating = ratings.reduce((acc: number, rating) => {
-                    if(rating.game === gameInfo.id) {
-                        if(!rating.rating) return acc;
-                        return acc + rating.rating ?? 0;
-                    }
-                    return acc;
-                }, 0) / ratings.length;
-
-                return {
-                    ...gameInfo,
-                    overall_rating,
-                    personal_rating: ratings.find((rating) => rating.game === gameInfo.id && rating.user === userId)?.rating || 0,
-                }
-            });
-
-            console.log("Logging Enriched Data: ")
-            console.log(enrichedData);
-
-            return resolve(enrichedData.sort((a, b) => b.overall_rating - a.overall_rating));
+function getEmptyEnrichedData(GameInformations: GameInformation[]) {
+    return GameInformations.map((gameInfo: GameInformation) => {
+        return {
+            ...gameInfo,
+            overall_rating: -1,
+            personal_rating: -1,
         }
     });
+}
+
+function getOverallRating(relatedRatings: { rating: number | null }[] ) {
+    return relatedRatings.reduce((acc: number, rating) => {
+        return acc + rating.rating!;
+    }, 0) / relatedRatings.length;
+}
+
+function getEnrichedData(ratings: { rating: number | null, game: number, user: string }[], gameInfo: GameInformation, userId: string) {
+    const relatedRatings = ratings.filter((rating) => rating.game === gameInfo.id);
+
+    let overall_rating = getOverallRating(relatedRatings);
+
+    if (relatedRatings.length === 0) overall_rating = -1;
+
+    let personal_rating = relatedRatings.find((rating) => rating.user === userId)?.rating;
+
+    if (personal_rating === undefined || personal_rating === null) personal_rating = -1;
+
+    return {
+        ...gameInfo,
+        overall_rating,
+        personal_rating,
+    }
+}
+
+export async function getGameInformations(): Promise<EnrichedGameInformation[]> {
+    const GameInformations  = (await supabase.from("GameInfo").select("*")).data as GameInformation[];
+
+    if(!GameInformations) return [];
+
+    const {data: ratings} = await supabase.from("GameRating").select("*");
+
+    if(!ratings) return getEmptyEnrichedData(GameInformations as GameInformation[]);
+
+    const userId =  await getCurrentUserId() ?? "";
+
+    const enrichedData: EnrichedGameInformation[] = GameInformations.map((gameInfo: GameInformation) => getEnrichedData(ratings, gameInfo, userId));
+
+    return enrichedData.sort((a, b) => b.overall_rating - a.overall_rating);
+}
+
+export async function getGameInformation(id: number): Promise<EnrichedGameInformation | null> {
+    const { data} = await supabase.from("GameInfo").select("*").eq("id", id);
+
+    if(!data) return null;
+
+    const GameInformation = data[0] as GameInformation;
+
+    const {data: ratings} = await supabase.from("GameRating").select("*").eq("game", id);
+
+    if(!ratings) return getEmptyEnrichedData([GameInformation])[0];
+
+    const userId =  await getCurrentUserId() ?? "";
+
+    return getEnrichedData(ratings, GameInformation, userId);
 }
